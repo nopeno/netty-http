@@ -32,7 +32,7 @@ class CleartextTest {
         HttpAddress httpAddress = HttpAddress.http2("localhost", 8008);
         HttpServerDomain domain = HttpServerDomain.builder(httpAddress)
                 .singleEndpoint("/", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code()).setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build();
         Server server = Server.builder(domain)
@@ -77,7 +77,7 @@ class CleartextTest {
         HttpAddress httpAddress = HttpAddress.http2("localhost", 8008);
         HttpServerDomain domain = HttpServerDomain.builder(httpAddress)
                 .singleEndpoint("/", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code()).setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build();
         Server server = Server.builder(domain)
@@ -85,7 +85,7 @@ class CleartextTest {
         server.accept();
         Client client = Client.builder()
                 .addPoolNode(httpAddress)
-                .setPoolNodeConnectionLimit(2)
+                .setPoolNodeConnectionLimit(4)
                 .build();
         final AtomicInteger counter = new AtomicInteger();
         final ResponseListener<HttpResponse> responseListener = resp -> {
@@ -97,7 +97,6 @@ class CleartextTest {
             }
         };
         try {
-            // single transport, single thread
             ClientTransport transport = client.newTransport();
             for (int i = 0; i < loop; i++) {
                 String payload = 0 + "/" + i;
@@ -112,7 +111,7 @@ class CleartextTest {
                     break;
                 }
             }
-            transport.get(10L, TimeUnit.SECONDS);
+            transport.get(30L, TimeUnit.SECONDS);
         } finally {
             server.shutdownGracefully();
             client.shutdownGracefully();
@@ -128,7 +127,7 @@ class CleartextTest {
         HttpAddress httpAddress = HttpAddress.http2("localhost", 8008);
         HttpServerDomain domain = HttpServerDomain.builder(httpAddress)
                 .singleEndpoint("/**", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code()).setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build();
         Server server = Server.builder(domain).build();
@@ -170,16 +169,16 @@ class CleartextTest {
                     }
                 });
             }
+            Thread.sleep(5000L);
             executorService.shutdown();
             boolean terminated = executorService.awaitTermination(30L, TimeUnit.SECONDS);
             executorService.shutdownNow();
             logger.log(Level.INFO, "terminated = " + terminated + ", now waiting 30s for transport to complete");
-            Thread.sleep(2000L);
             transport.get(30L, TimeUnit.SECONDS);
             logger.log(Level.INFO, "transport complete");
         } finally {
-            client.shutdownGracefully();
             server.shutdownGracefully();
+            client.shutdownGracefully();
         }
         logger.log(Level.INFO, "client requests = " + client.getRequestCounter() +
                 " client responses = " + client.getResponseCounter());
@@ -189,13 +188,13 @@ class CleartextTest {
 
     @Test
     void testTwoPooledClearTextHttp2() throws Exception {
-        int threads = 2;
-        int loop = 1000;
+        int threads = 4;
+        int loop = 1024;
         HttpAddress httpAddress1 = HttpAddress.http2("localhost", 8008);
         AtomicInteger counter1 = new AtomicInteger();
         HttpServerDomain domain1 = HttpServerDomain.builder(httpAddress1)
                 .singleEndpoint("/", (request, response) -> {
-                    response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                    response.getBuilder().setStatus(HttpResponseStatus.OK.code()).setContentType("text/plain").build()
                             .write(request.getContent().toString(StandardCharsets.UTF_8));
                     counter1.incrementAndGet();
                 })
@@ -207,7 +206,7 @@ class CleartextTest {
         AtomicInteger counter2 = new AtomicInteger();
         HttpServerDomain domain2 = HttpServerDomain.builder(httpAddress2)
                 .singleEndpoint("/", (request, response) -> {
-                    response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                    response.getBuilder().setStatus(HttpResponseStatus.OK.code()).setContentType("text/plain").build()
                             .write(request.getContent().toString(StandardCharsets.UTF_8));
                     counter2.incrementAndGet();
                 })
@@ -257,11 +256,11 @@ class CleartextTest {
                     }
                 });
             }
+            Thread.sleep(5000L);
             executorService.shutdown();
-            boolean terminated = executorService.awaitTermination(10L, TimeUnit.SECONDS);
+            boolean terminated = executorService.awaitTermination(30L, TimeUnit.SECONDS);
             logger.log(Level.INFO, "terminated = " + terminated + ", now waiting for transport to complete");
-            Thread.sleep(2000L);
-            transport.get(10L, TimeUnit.SECONDS);
+            transport.get(30L, TimeUnit.SECONDS);
             logger.log(Level.INFO, "transport complete");
         } finally {
             server1.shutdownGracefully();

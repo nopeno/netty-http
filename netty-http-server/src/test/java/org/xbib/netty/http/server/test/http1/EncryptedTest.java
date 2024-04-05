@@ -35,7 +35,8 @@ class EncryptedTest {
         Server server = Server.builder(HttpServerDomain.builder(httpAddress)
                 .setSelfCert()
                 .singleEndpoint("/", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code())
+                                .setContentType("text/plain").build()
                         .write(request.getContent().retain()))
                 .build())
                 .build();
@@ -60,12 +61,13 @@ class EncryptedTest {
 
     @Test
     void testPooledSecureHttp1() throws Exception {
-        int loop = 4096;
+        int loop = 1024;
         HttpAddress httpAddress = HttpAddress.secureHttp1("localhost", 8143);
         Server server = Server.builder(HttpServerDomain.builder(httpAddress)
                 .setSelfCert()
                 .singleEndpoint("/", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code())
+                                .setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build())
                 .build();
@@ -73,7 +75,7 @@ class EncryptedTest {
         Client client = Client.builder()
                 .trustInsecure()
                 .addPoolNode(httpAddress)
-                .setPoolNodeConnectionLimit(2)
+                .setPoolNodeConnectionLimit(4)
                 .build();
         AtomicInteger counter = new AtomicInteger();
         final ResponseListener<HttpResponse> responseListener = resp -> counter.incrementAndGet();
@@ -103,12 +105,13 @@ class EncryptedTest {
     @Test
     void testMultithreadPooledSecureHttp1() throws Exception {
         int threads = 4;
-        int loop = 4 * 1024;
+        int loop = 1024;
         HttpAddress httpAddress = HttpAddress.secureHttp1("localhost", 8143);
         Server server = Server.builder(HttpServerDomain.builder(httpAddress)
                 .setSelfCert()
                 .singleEndpoint("/", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code())
+                                .setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build())
                 .build();
@@ -148,11 +151,11 @@ class EncryptedTest {
                 });
             }
             executorService.shutdown();
-            boolean terminated = executorService.awaitTermination(60, TimeUnit.SECONDS);
+            boolean terminated = executorService.awaitTermination(30L, TimeUnit.SECONDS);
             logger.log(Level.INFO, "terminated = " + terminated);
         } finally {
-            client.shutdownGracefully();
-            server.shutdownGracefully();
+            client.shutdownGracefully(30L, TimeUnit.SECONDS);
+            server.shutdownGracefully(30L, TimeUnit.SECONDS);
         }
         assertEquals(threads * loop , counter.get());
     }

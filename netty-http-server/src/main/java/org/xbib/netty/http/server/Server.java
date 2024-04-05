@@ -5,22 +5,26 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.DomainWildcardMappingBuilder;
 import io.netty.util.Mapping;
 import org.xbib.net.URL;
+import org.xbib.net.URLBuilder;
 import org.xbib.netty.http.common.HttpAddress;
 import org.xbib.netty.http.common.HttpChannelInitializer;
 import org.xbib.netty.http.common.TransportProvider;
 import org.xbib.netty.http.server.api.Domain;
 import org.xbib.netty.http.server.api.EndpointResolver;
+import org.xbib.netty.http.server.api.ServerConfig;
 import org.xbib.netty.http.server.api.ServerProtocolProvider;
 import org.xbib.netty.http.server.api.ServerRequest;
 import org.xbib.netty.http.server.api.ServerResponse;
@@ -29,6 +33,7 @@ import org.xbib.netty.http.server.endpoint.HttpEndpointResolver;
 import org.xbib.netty.http.server.security.CertificateUtils;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.net.BindException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.CertificateParsingException;
@@ -65,7 +70,7 @@ public final class Server implements AutoCloseable {
         }
     }
 
-    private final DefaultServerConfig serverConfig;
+    private final ServerConfig serverConfig;
 
     private final EventLoopGroup parentEventLoopGroup;
 
@@ -98,7 +103,7 @@ public final class Server implements AutoCloseable {
      * @param executor an extra blocking thread pool executor or null
      */
     @SuppressWarnings("unchecked")
-    private Server(DefaultServerConfig serverConfig,
+    private Server(ServerConfig serverConfig,
                    ByteBufAllocator byteBufAllocator,
                    EventLoopGroup parentEventLoopGroup,
                    EventLoopGroup childEventLoopGroup,
@@ -159,6 +164,10 @@ public final class Server implements AutoCloseable {
                 serverConfig.getAddress(), domainNameMapping));
     }
 
+    public void loop() throws IOException, InterruptedException {
+        accept().channel().closeFuture().sync();
+    }
+
     @Override
     public void close() {
         try {
@@ -172,25 +181,33 @@ public final class Server implements AutoCloseable {
         return new Builder(httpServerDomain);
     }
 
-    public DefaultServerConfig getServerConfig() {
+    public ServerConfig getServerConfig() {
         return serverConfig;
     }
 
     /**
      * Start accepting incoming connections.
      * @return the channel future
-     * @throws IOException if channel future sync is interrupted
+     * @throws BindException if socket bind did not succeed
      */
-    public ChannelFuture accept() throws IOException {
-        HttpAddress httpAddress = serverConfig.getAddress();
-        logger.log(Level.INFO, () -> "trying to bind to " + httpAddress);
+    public ChannelFuture accept() throws BindException {
         try {
-            this.channelFuture = bootstrap.bind(httpAddress.getInetSocketAddress()).await().sync();
-        } catch (InterruptedException e) {
-            throw new IOException(e);
+            HttpAddress httpAddress = serverConfig.getAddress();
+            logger.log(Level.INFO, () -> "trying to bind to " + httpAddress);
+            try {
+                this.channelFuture = bootstrap.bind(httpAddress.getInetSocketAddress()).await().sync();
+            } catch (InterruptedException e) {
+                throw new BindException(e.getMessage());
+            }
+            logger.log(Level.INFO, () -> ServerName.getServerName() + " ready, listening on " + httpAddress);
+            return channelFuture;
+        } catch (Exception e) {
+            if (e instanceof BindException) {
+                throw e;
+            } else {
+                throw new BindException(e.getMessage());
+            }
         }
-        logger.log(Level.INFO, () -> ServerName.getServerName() + " ready, listening on " + httpAddress);
-        return channelFuture;
     }
 
     public AtomicLong getRequestCounter() {
@@ -225,7 +242,7 @@ public final class Server implements AutoCloseable {
         } else {
             throw new IllegalArgumentException("no host header in " + headers);
         }
-        URL.Builder builder = URL.builder().scheme(scheme).host(host);
+        URLBuilder builder = URL.builder().scheme(scheme).host(host);
         if (port != null) {
             builder.port(Integer.parseInt(port));
         }
@@ -360,7 +377,7 @@ public final class Server implements AutoCloseable {
         throw new IllegalStateException("no channel initializer found for major version " + majorVersion);
     }
 
-    private static EventLoopGroup createParentEventLoopGroup(DefaultServerConfig serverConfig,
+    private static EventLoopGroup createParentEventLoopGroup(ServerConfig serverConfig,
                                                              EventLoopGroup parentEventLoopGroup ) {
         EventLoopGroup eventLoopGroup = parentEventLoopGroup;
         if (eventLoopGroup == null) {
@@ -378,7 +395,7 @@ public final class Server implements AutoCloseable {
         return eventLoopGroup;
     }
 
-    private static EventLoopGroup createChildEventLoopGroup(DefaultServerConfig serverConfig,
+    private static EventLoopGroup createChildEventLoopGroup(ServerConfig serverConfig,
                                                             EventLoopGroup childEventLoopGroup ) {
         EventLoopGroup eventLoopGroup = childEventLoopGroup;
         if (eventLoopGroup == null) {
@@ -396,7 +413,7 @@ public final class Server implements AutoCloseable {
         return eventLoopGroup;
     }
 
-    private static Class<? extends ServerSocketChannel> createSocketChannelClass(DefaultServerConfig serverConfig,
+    private static Class<? extends ServerSocketChannel> createSocketChannelClass(ServerConfig serverConfig,
                                                                                  Class<? extends ServerSocketChannel> socketChannelClass) {
         Class<? extends ServerSocketChannel> channelClass = socketChannelClass;
         if (channelClass == null) {
@@ -448,7 +465,7 @@ public final class Server implements AutoCloseable {
             thread.setDaemon(true);
             return thread;
         }
-    };
+    }
 
     public static class BlockingThreadPoolExecutor extends ThreadPoolExecutor {
 
@@ -646,8 +663,28 @@ public final class Server implements AutoCloseable {
             return this;
         }
 
+        public Builder enablePipelining(boolean enablePipelining) {
+            this.serverConfig.setPipelining(enablePipelining);
+            return this;
+        }
+
+        public Builder setPipeliningCapacity(int pipeliningCapacity) {
+            this.serverConfig.setPipeliningCapacity(pipeliningCapacity);
+            return this;
+        }
+
         public Builder setInstallHttp2Upgrade(boolean installHttp2Upgrade) {
             this.serverConfig.setInstallHttp2Upgrade(installHttp2Upgrade);
+            return this;
+        }
+
+        public Builder setOpenSSLSslProvider() {
+            this.serverConfig.setOpenSSLSslProvider();
+            return this;
+        }
+
+        public Builder setJdkSslProvider() {
+            this.serverConfig.setJdkSslProvider();
             return this;
         }
 
@@ -658,6 +695,11 @@ public final class Server implements AutoCloseable {
 
         public Builder addDomain(Domain<HttpEndpointResolver> domain) {
             this.serverConfig.addDomain(domain);
+            return this;
+        }
+
+        public Builder setWebSocketFrameHandler(SimpleChannelInboundHandler<WebSocketFrame> webSocketFrameHandler) {
+            this.serverConfig.setWebSocketFrameHandler(webSocketFrameHandler);
             return this;
         }
 
@@ -709,9 +751,8 @@ public final class Server implements AutoCloseable {
                 }
             }
             logger.log(Level.INFO, "configured domains: " + serverConfig.getDomains());
-            return new Server(serverConfig, byteBufAllocator,
-                    parentEventLoopGroup, childEventLoopGroup, socketChannelClass,
-                    executor);
+            return new Server(serverConfig, byteBufAllocator, parentEventLoopGroup, childEventLoopGroup,
+                    socketChannelClass, executor);
         }
     }
 }

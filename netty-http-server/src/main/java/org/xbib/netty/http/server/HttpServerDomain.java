@@ -12,7 +12,7 @@ import org.xbib.netty.http.common.HttpAddress;
 import org.xbib.netty.http.common.HttpMethod;
 import org.xbib.netty.http.server.api.Domain;
 import org.xbib.netty.http.server.api.EndpointResolver;
-import org.xbib.netty.http.server.api.security.ServerCertificateProvider;
+import org.xbib.netty.http.server.api.ServerCertificateProvider;
 import org.xbib.netty.http.common.security.SecurityUtil;
 import org.xbib.netty.http.server.api.ServerRequest;
 import org.xbib.netty.http.server.api.ServerResponse;
@@ -168,7 +168,7 @@ public class HttpServerDomain implements Domain<HttpEndpointResolver> {
             }
         } else {
             if (serverResponseBuilder != null) {
-                serverResponseBuilder.setStatus(HttpResponseStatus.NOT_FOUND)
+                serverResponseBuilder.setStatus(HttpResponseStatus.NOT_FOUND.code())
                         .setContentType("text/plain;charset=utf-8")
                         .build().write("no endpoint found to match request");
             }
@@ -178,7 +178,7 @@ public class HttpServerDomain implements Domain<HttpEndpointResolver> {
     @Override
     public void handleAfterError(ServerRequest.Builder serverRequestBuilder, ServerResponse.Builder serverResponseBuilder, Throwable throwable) {
         logger.log(Level.SEVERE, throwable.getMessage(), throwable);
-        serverResponseBuilder.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR)
+        serverResponseBuilder.setStatus(HttpResponseStatus.INTERNAL_SERVER_ERROR.code())
                 .setContentType("text/plain;charset=utf-8")
                 .build().write(ExceptionFormatter.format(throwable));
     }

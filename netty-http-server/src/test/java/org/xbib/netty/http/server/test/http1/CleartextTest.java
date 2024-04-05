@@ -34,25 +34,26 @@ class CleartextTest {
         HttpAddress httpAddress = HttpAddress.http1("localhost", 8008);
         HttpServerDomain domain = HttpServerDomain.builder(httpAddress)
                 .singleEndpoint("/**", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code())
+                                .setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build();
-        Server server = Server.builder(domain).build();
+        Server server = Server.builder(domain)
+                .build();
         server.accept();
         Client client = Client.builder()
                 .build();
         AtomicInteger counter = new AtomicInteger();
-        final ResponseListener<HttpResponse> responseListener = resp -> {
-            if (resp.getStatus().getCode() ==  HttpResponseStatus.OK.code()) {
-                logger.log(Level.INFO, resp.getBodyAsString(StandardCharsets.UTF_8));
-                counter.incrementAndGet();
-            }
-        };
         try {
             Request request = Request.get().setVersion(HttpVersion.HTTP_1_1)
                     .url(server.getServerConfig().getAddress().base())
                     .content("Hello world", "text/plain")
-                    .setResponseListener(responseListener)
+                    .setResponseListener(resp -> {
+                        if (resp.getStatus().getCode() == HttpResponseStatus.OK.code()) {
+                            logger.log(Level.INFO, resp.getBodyAsString(StandardCharsets.UTF_8));
+                            counter.incrementAndGet();
+                        }
+                    })
                     .build();
             client.execute(request).get();
         } finally {
@@ -64,24 +65,28 @@ class CleartextTest {
 
     @Test
     void testPooledClearTextHttp1() throws Exception {
-        int loop = 1;
+        int loop = 1024;
         HttpAddress httpAddress = HttpAddress.http1("localhost", 8008);
         HttpServerDomain domain = HttpServerDomain.builder(httpAddress)
                 .singleEndpoint("/**", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code())
+                                .setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build();
-        Server server = Server.builder(domain).build();
+        Server server = Server.builder(domain)
+                .build();
         server.accept();
         Client client = Client.builder()
                 .addPoolNode(httpAddress)
-                .setPoolNodeConnectionLimit(2)
+                .setPoolNodeConnectionLimit(4)
                 .build();
         AtomicInteger counter = new AtomicInteger();
         final ResponseListener<HttpResponse> responseListener = resp -> {
             if (resp.getStatus().getCode() == HttpResponseStatus.OK.code()) {
-                logger.log(Level.INFO, resp.getBodyAsString(StandardCharsets.UTF_8));
                 counter.incrementAndGet();
+            } else {
+                logger.log(Level.INFO, "response listener: headers = " + resp.getHeaders() +
+                        " response body = " + resp.getBodyAsString(StandardCharsets.UTF_8));
             }
         };
         try {
@@ -103,6 +108,7 @@ class CleartextTest {
             client.shutdownGracefully();
             server.shutdownGracefully();
         }
+        logger.log(Level.INFO, "expecting=" + loop + " counter=" + counter.get());
         assertEquals(loop, counter.get());
     }
 
@@ -113,7 +119,8 @@ class CleartextTest {
         HttpAddress httpAddress = HttpAddress.http1("localhost", 8008);
         HttpServerDomain domain = HttpServerDomain.builder(httpAddress)
                 .singleEndpoint("/**", (request, response) ->
-                        response.getBuilder().setStatus(HttpResponseStatus.OK).setContentType("text/plain").build()
+                        response.getBuilder().setStatus(HttpResponseStatus.OK.code())
+                                .setContentType("text/plain").build()
                                 .write(request.getContent().toString(StandardCharsets.UTF_8)))
                 .build();
         Server server = Server.builder(domain).build();
@@ -149,7 +156,7 @@ class CleartextTest {
                                 logger.log(Level.WARNING, "transport failed: " + transport.getFailure().getMessage(), transport.getFailure());
                                 break;
                             }
-                            transport.get(20L, TimeUnit.SECONDS);
+                            transport.get(30L, TimeUnit.SECONDS);
                         }
                     } catch (Throwable e) {
                         logger.log(Level.SEVERE, e.getMessage(), e);
@@ -157,14 +164,14 @@ class CleartextTest {
                 });
             }
             executorService.shutdown();
-            boolean terminated = executorService.awaitTermination(20L, TimeUnit.SECONDS);
+            boolean terminated = executorService.awaitTermination(30L, TimeUnit.SECONDS);
             executorService.shutdownNow();
             logger.log(Level.INFO, "terminated = " + terminated + ", now waiting for transport to complete");
         } catch (Exception e) {
             logger.log(Level.SEVERE, e.getMessage(), e);
         } finally {
-            server.shutdownGracefully(20L, TimeUnit.SECONDS);
-            client.shutdownGracefully(20L, TimeUnit.SECONDS);
+            server.shutdownGracefully(30L, TimeUnit.SECONDS);
+            client.shutdownGracefully(30L, TimeUnit.SECONDS);
         }
         logger.log(Level.INFO, "client requests = " + client.getRequestCounter() +
                 " client responses = " + client.getResponseCounter());

@@ -1,3 +1,43 @@
+pluginManagement {
+    plugins {
+        id('com.gradle.plugin-publish') version('0.18.0')
+        id('de.marcphilipp.nexus-publish') version('0.4.0')
+        id('io.codearte.nexus-staging') version('0.21.1')
+    }
+}
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            version('gradle', '7.5.1')
+            version('groovy', '3.0.10')
+            version('spock', '2.0-groovy-3.0')
+            version('junit', '5.9.1')
+            version('netty', '4.1.89.Final')
+            version('netty-tcnative', '2.0.59.Final')
+            library('groovy-core', 'org.codehaus.groovy', 'groovy').versionRef('groovy')
+            library('spock-core', 'org.spockframework', 'spock-core').versionRef('spock')
+            library('spock-junit4', 'org.spockframework', 'spock-junit4').versionRef('spock')
+            library('junit-jupiter-api', 'org.junit.jupiter', 'junit-jupiter-api').versionRef('junit')
+            library('junit-jupiter-params', 'org.junit.jupiter', 'junit-jupiter-params').versionRef('junit')
+            library('junit-jupiter-engine', 'org.junit.jupiter', 'junit-jupiter-engine').versionRef('junit')
+            library('hamcrest', 'org.hamcrest', 'hamcrest-library').version('2.2')
+            library('netty-http2', 'io.netty', 'netty-codec-http2').versionRef('netty')
+            library('netty-handler-proxy', 'io.netty', 'netty-handler-proxy').versionRef('netty')
+            library('netty-epoll', 'io.netty', 'netty-transport-native-epoll').versionRef('netty')
+            library('netty-kqueue', 'io.netty', 'netty-transport-native-kqueue').versionRef('netty')
+            library('netty-boringssl', 'io.netty', 'netty-tcnative-boringssl-static').versionRef('netty-tcnative')
+            library('net', 'org.xbib', 'net').version('3.0.3')
+            library('net-path', 'org.xbib', 'net-path').version('3.0.3')
+            library('bouncycastle', 'org.bouncycastle', 'bcpkix-jdk18on').version('1.72')
+            library('conscrypt', 'org.conscrypt', 'conscrypt-openjdk-uber').version('2.5.2')
+            library('jackson', 'com.fasterxml.jackson.core', 'jackson-databind').version('2.12.7')
+            library('guice', 'org.xbib', 'guice').version('5.0.1.0')
+            library('javassist', 'org.javassist', 'javassist').version('3.29.1-GA')
+        }
+    }
+}
+
 include 'netty-http-common'
 include 'netty-http-epoll'
 include 'netty-http-kqueue'
@@ -7,6 +47,4 @@ include 'netty-http-client'
 include 'netty-http-client-rest'
 include 'netty-http-server-api'
 include 'netty-http-server'
-include 'netty-http-server-reactive'
 include 'netty-http-server-rest'
-include 'netty-http-rx'

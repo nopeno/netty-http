@@ -2,7 +2,6 @@ package org.xbib.netty.http.server.api;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.stream.ChunkedInput;
 import org.xbib.netty.http.common.cookie.Cookie;
 import java.io.Flushable;
@@ -23,7 +22,7 @@ public interface ServerResponse extends Flushable {
 
     Long getResponseId();
 
-    ByteBufOutputStream getOutputStream();
+    ByteBufOutputStream newOutputStream();
 
     void flush() throws IOException;
 
@@ -41,7 +40,7 @@ public interface ServerResponse extends Flushable {
 
     interface Builder {
 
-        Builder setStatus(HttpResponseStatus httpResponseStatus);
+        Builder setStatus(int statusCode);
 
         Builder setContentType(CharSequence contentType);
 

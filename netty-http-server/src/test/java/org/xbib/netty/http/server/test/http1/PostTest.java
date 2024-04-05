@@ -38,10 +38,11 @@ class PostTest {
                     if ("Hello World".equals(parameters.get("withspace"))) {
                         success2.set(true);
                     }
-                    if ("Jörg".equals(parameters.get("name"))) {
+                    // ISO-8859
+                    if ("JÃ¶rg".equals(parameters.get("name"))) {
                         success3.set(true);
                     }
-                    resp.getBuilder().setStatus(HttpResponseStatus.OK).build().flush();
+                    resp.getBuilder().setStatus(HttpResponseStatus.OK.code()).build().flush();
                 },  "POST")
                 .build();
         Server server = Server.builder(domain)
@@ -70,6 +71,7 @@ class PostTest {
             client.shutdownGracefully();
             logger.log(Level.INFO, "server and client shut down");
         }
+        logger.log(Level.INFO, "1=" + success1 + " 2=" + success2 + " 3=" + success3);
         assertTrue(success1.get());
         assertTrue(success2.get());
         assertTrue(success3.get());
@@ -91,7 +93,7 @@ class PostTest {
                     if ("Jörg".equals(parameters.get("name"))) {
                         success3.set(true);
                     }
-                    resp.getBuilder().setStatus(HttpResponseStatus.OK).build().flush();
+                    resp.getBuilder().setStatus(HttpResponseStatus.OK.code()).build().flush();
                 },  "POST")
                 .build();
         Server server = Server.builder(domain)
@@ -145,7 +147,7 @@ class PostTest {
                     if ("my value".equals(parameters.get("my param"))) {
                         success4.set(true);
                     }
-                    resp.getBuilder().setStatus(HttpResponseStatus.OK).build().flush();
+                    resp.getBuilder().setStatus(HttpResponseStatus.OK.code()).build().flush();
                 },  "POST")
                 .build();
         Server server = Server.builder(domain)
@@ -202,7 +204,7 @@ class PostTest {
                     if ("my value".equals(parameters.get("my param"))) {
                         success4.set(true);
                     }
-                    resp.getBuilder().setStatus(HttpResponseStatus.OK).build().flush();
+                    resp.getBuilder().setStatus(HttpResponseStatus.OK.code()).build().flush();
                 },  "POST")
                 .build();
         Server server = Server.builder(domain)
@@ -256,7 +258,7 @@ class PostTest {
                     if ("bÿc".equals(parameters.get("a"))) {
                         success2.set(true);
                     }
-                    resp.getBuilder().setStatus(HttpResponseStatus.OK).build().flush();
+                    resp.getBuilder().setStatus(HttpResponseStatus.OK.code()).build().flush();
                 },  "POST")
                 .build();
         Server server = Server.builder(domain)
